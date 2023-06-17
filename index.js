@@ -176,6 +176,293 @@ async function run() {
       }
     });
 
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+
+      const result = await usersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    // cart collection apis
+    // app.get("/carts", verifyJWT, async (req, res) => {
+    app.get("/carts", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+
+      if (!email) {
+        res.send([]);
+      }
+
+      const decodedEmail = req.decoded.email;
+      if (email !== decodedEmail) {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
+      }
+
+      const query = { email: email };
+      const result = await cartCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.post("/carts", verifyJWT, async (req, res) => {
+      const email = req.body.email;
+
+      if (!email) {
+        res.send([]);
+      }
+
+      const decodedEmail = req.decoded.email;
+      if (email !== decodedEmail) {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
+      }
+
+      const selecteditem = req.body;
+
+      const result = await cartCollection.insertOne(selecteditem);
+      res.send(result);
+    });
+
+    // api for delete from cart
+    app.delete("/deleteselectedclasses/:id", async (req, res) => {
+      const id = req.params.id;
+
+      const getclass = await cartCollection.findOne({ _id: new ObjectId(id) });
+
+      let numberofstudents;
+      if (getclass.numberofstudents) {
+        numberofstudents = getclass.numberofstudents - 1;
+      }
+
+      const classUpdate = await classesCollection.updateOne(
+        { _id: new ObjectId(getclass.classId) },
+        {
+          $set: {
+            numberofstudents: parseInt(numberofstudents),
+          },
+        }
+      );
+
+      const query = { _id: new ObjectId(id) };
+      const result = await cartCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // classes collection apis
+    //get classes
+    app.get("/classes", async (req, res) => {
+      const result = await classesCollection.find().toArray();
+      res.send(result);
+    });
+
+    // api for get my classes
+    // TODO use verifyJWT
+    app.get("/myclasses", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+
+      if (!email) {
+        res.send([]);
+      }
+
+      const decodedEmail = req.decoded.email;
+
+      if (email !== decodedEmail) {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
+      }
+
+      const query = { instructorEmail: email };
+      const result = await classesCollection.find(query).toArray();
+
+      res.send(result);
+    });
+
+    //get popular classes
+    app.get("/popularclasses", async (req, res) => {
+      const result = await classesCollection
+        .find()
+        .sort({ totalenrolledstudent: -1 })
+        .limit(6)
+        .toArray();
+
+      res.send(result);
+    });
+
+    //get popular instructors
+    app.get("/popularinstructors", async (req, res) => {
+      const result = await usersCollection
+        .find({ role: "instructor" })
+        .sort({ enrolledstudent: -1 })
+        .limit(6)
+        .toArray();
+
+      res.send(result);
+    });
+
+    // api for get myselectedclasses
+
+    app.get("/myselectedclasses", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+
+      if (!email) {
+        res.send([]);
+      }
+
+      const decodedEmail = req.decoded.email;
+
+      if (email !== decodedEmail) {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
+      }
+
+      const user = await usersCollection.find({ email: email }).toArray();
+
+      const idarray = user[0].selectedclasses;
+      //const map1 = array1.map(x => x * 2);
+      //new ObjectId("x");
+      const getidarray = idarray.map((x) => {
+        return new ObjectId(x);
+      });
+
+      const result = await classesCollection
+        .find({
+          _id: {
+            $in: getidarray,
+          },
+        })
+        .toArray();
+
+      res.send(result);
+    });
+
+    // api for removed selected class
+    app.get("/deleteselectedclasses", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+      const id = req.query.id;
+
+      if (!email) {
+        res.send([]);
+      }
+
+      const decodedEmail = req.decoded.email;
+
+      if (email !== decodedEmail) {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
+      }
+
+      const user = await usersCollection.find({ email: email }).toArray();
+
+      const idarray = user[0].selectedclasses;
+      const modifiedidarray = idarray.filter((element) => element !== id);
+
+      const updateDoc = {
+        $set: {
+          selectedclasses: modifiedidarray,
+        },
+      };
+
+      const result = await usersCollection.updateOne(
+        { email: email },
+        updateDoc
+      );
+      res.send(result);
+    });
+
+    ////add classes
+    app.post("/classes", async (req, res) => {
+      const item = req.body;
+
+      const result = await classesCollection.insertOne({
+        ...req.body,
+        status: "pending",
+        totalenrolledstudent: 0,
+        feedback: "",
+      });
+      res.send(result);
+    });
+
+    // update class pending to aproved or denied
+    app.put("/classes/:id", async (req, res) => {
+      const id = req.params.id;
+
+      const result = await classesCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: req.body },
+        { upsert: false }
+      );
+
+      res.send(result);
+    });
+
+    // create payment intent
+    app.post("/create-payment-intent", verifyJWT, async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    // payment related api
+    app.post("/payments", verifyJWT, async (req, res) => {
+      const payment = req.body;
+
+      const insertResult = await paymentCollection.insertOne(payment);
+
+      const query = {
+        _id: { $in: payment.cartItems.map((id) => new ObjectId(id)) },
+      };
+
+      const deleteResult = await cartCollection.deleteMany(query);
+
+      const queryforupdateclasses = {
+        _id: { $in: payment.selectedclasses.map((id) => new ObjectId(id)) },
+      };
+
+      const resultupdateclasses = await classesCollection.updateMany(
+        queryforupdateclasses,
+        {
+          $inc: {
+            availableSeats: -1,
+            totalenrolledstudent: 1,
+          },
+        }
+      );
+
+      const queryforupdateinstructors = {
+        email: { $in: payment.instructorEmails.map((email) => email) },
+      };
+
+      const resultupdateusers = await usersCollection.updateMany(
+        queryforupdateinstructors,
+        {
+          $inc: {
+            enrolledstudent: 1,
+          },
+        }
+      );
+
+      res.send({ insertResult, deleteResult });
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
