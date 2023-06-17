@@ -482,8 +482,6 @@ async function run() {
     app.get("/payments", verifyJWT, async (req, res) => {
       const email = req.query.email;
 
-      console.log("-------email------", email);
-
       if (!email) {
         res.send([]);
       }
