@@ -113,6 +113,69 @@ async function run() {
       res.send(result);
     });
 
+    // security layer: verifyJWT
+    // email same
+    // check student
+    app.get("/users/student/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+
+      if (req.decoded.email !== email) {
+        res.send({ student: false });
+      }
+
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      const result = { student: user?.role === "student" };
+
+      res.send(result);
+    });
+
+    // security layer: verifyJWT
+    // email same
+    // check instructor
+    app.get("/users/instructor/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+
+      if (req.decoded.email !== email) {
+        res.send({ instructor: false });
+      }
+
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      const result = { instructor: user?.role === "instructor" };
+
+      res.send(result);
+    });
+
+    // security layer: verifyJWT
+    // email same
+    // check admin
+    app.get("/users/admin/:email", verifyJWT, async (req, res) => {
+      try {
+        const email = req.params.email;
+
+        if (req.decoded.email !== email) {
+          return res.send({ admin: false });
+        }
+
+        const query = { email: email };
+        const user = await usersCollection.findOne(query);
+
+        if (!user) {
+          return res.send({ admin: false });
+        }
+
+        const result = {
+          admin: user.role === "admin" || user.role === "super-admin",
+        };
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error in retrieving user:", error);
+        res.status(500).send({ error: "Internal Server Error" });
+      }
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
