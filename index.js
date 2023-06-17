@@ -52,6 +52,15 @@ async function run() {
     const classesCollection = client.db("SummerCampDb").collection("classes");
     const paymentCollection = client.db("SummerCampDb").collection("payments");
 
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "1h",
+      });
+
+      res.send({ token });
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
