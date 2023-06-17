@@ -1,10 +1,11 @@
 const express = require("express");
+const app = express();
 const cors = require("cors");
+require("dotenv").config();
 
 // middleware
 app.use(cors());
 
-const app = express();
 const port = process.env.PORT || 5000;
 
 app.get("/", (req, res) => {
