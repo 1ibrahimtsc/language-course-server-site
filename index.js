@@ -75,6 +75,19 @@ async function run() {
       next();
     };
 
+    // Warning: use verifyJWT before using verifyInstructor
+    const verifyInstructor = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "instructor") {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden message" });
+      }
+      next();
+    };
+
     // api for get users
     app.get("/users", async (req, res) => {
       const result = await usersCollection.find().toArray();
@@ -192,7 +205,7 @@ async function run() {
     });
 
     // cart collection apis
-    // app.get("/carts", verifyJWT, async (req, res) => {
+
     app.get("/carts", verifyJWT, async (req, res) => {
       const email = req.query.email;
 
@@ -462,6 +475,33 @@ async function run() {
       );
 
       res.send({ insertResult, deleteResult });
+    });
+
+    // api for get payments history
+
+    app.get("/payments", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+
+      console.log("-------email------", email);
+
+      if (!email) {
+        res.send([]);
+      }
+
+      const decodedEmail = req.decoded.email;
+      if (email !== decodedEmail) {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
+      }
+
+      const result = await paymentCollection
+        .find({ email: email })
+        .sort({ date: -1 })
+
+        .toArray();
+
+      res.send(result);
     });
 
     // Send a ping to confirm a successful connection
